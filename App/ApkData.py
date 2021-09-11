@@ -13,17 +13,22 @@ from logs.logger import Logger
 from retrying import retry
 from proxy.proxy import Proxy
 import telnetlib
+import traceback
 logger = Logger(__name__)
+cookies = {
+    'Hm_lvt_b27c6e108bfe7b55832e8112042646d8': '1631193620',
+    'PHPSESSID': '82e312b1861d2671854bb2c715bae594',
+    'Hm_lpvt_b27c6e108bfe7b55832e8112042646d8': '1631325675',
+    'CKISP': '481ab5e2c7b0be41ada6479f5e2b6f98%7C1631325675',
+}
+
 headers = {
     'Connection': 'keep-alive',
-    'Cache-Control': 'max-age=0',
     'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36 Edg/92.0.902.84',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36 Edg/85.0.564.67',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Referer': 'http://www.anzhi.com/',
-    'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-    'If-None-Match': 'W/"6130be67-b379"',
-    'If-Modified-Since': 'Thu, 02 Sep 2021 12:07:03 GMT',
+    'Referer': 'http://www.anzhi.com/pkg/531a_com.ss.android.article.lite.html',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
 }
 mapper = {"background-position:0 -120px":"5","background-position:0 -108px":"4.5","background-position:0 -96px":"4","background-position:0 -84px":"3.5",
 "background-position:0 -72px":"3","background-position:0 -60px":"2.5","background-position:0 -48px":"2",
@@ -54,8 +59,8 @@ def craw_app_list_page(page_num):
 
     proxies = {'http': random.choice(ips), 'https': 'http://localhost:8888'}
     page = requests.get(
-        url="http://www.anzhi.com/sort_45_%i_hot.html"%page_num, proxies=proxies,
-         headers=headers,verify=False)
+        url="http://www.anzhi.com/sort_47_%i_hot.html"%page_num, proxies=proxies,
+         headers=headers,cookies=cookies,verify=False)
     if page.status_code == 200: 
         page = page.text
         logger.get_log().debug("访问应用列表页面 page %i 成功"%page_num)
@@ -82,10 +87,12 @@ def download(id, name):
     logger.get_log().debug("开始下载应用：  "+name)
 
     proxies = {'http': random.choice(ips), 'https': 'http://localhost:8888'}
-    response = requests.get('http://www.anzhi.com/dl_app.php', headers=headers, proxies=proxies,params=params,stream=True, verify=False)
-    
-
-     
+    try:
+        response = requests.get('http://www.anzhi.com/dl_app.php', headers=headers,cookies=cookies, proxies=proxies,params=params,stream=True, verify=False)
+    except Exception as e:
+        logger.get_log().error("下载失败" + name)
+        logger.get_log().error(traceback.format_exc())
+        logger.get_log().error("重试中")
     # stream = True流式请求
     with open(tmp_path,"wb") as f:
         for chunk in response.iter_content(chunk_size=1024):
@@ -93,35 +100,32 @@ def download(id, name):
                 f.write(chunk)
     os.rename(tmp_path, file_path+name+".apk")
     
-    return name
+    logger.get_log().debug("应用 %s 下载成功"%name)
+    
 
 def craw_download_urls(apps):
     arr = []
     for app in apps:
-        name = app.xpath("./div[2]/span/a")[0].text
-        version = app.xpath("./div[2]/div/span")[0].text
-        download_num = app.xpath("./div[2]/div/span")[1].text
-        desc = app.xpath("./div[2]/p")[0].text
-        key = app.xpath("./div[2]/div/span[3]/span[2]")[0].attrib["style"]
-        rating = mapper[key]
-        id = app.xpath("./div[3]/a")[0].attrib["onclick"]
-        id = re.findall(pattern, str(id))
-        arr.append({'name':name,'id':id[0],'version':version,'download_num':download_num,
-        'desc':desc,'rating':rating})
         try:
-            result = executor.submit(download,id,name)
-            for data in as_completed([result]):
-                if data.result():
-                    logger.get_log().debug("应用 %s 下载成功"%data.result())
-                print("download success "+name)
-        except :
-            logger.get_log().debug("下载 "+ name +"失败")
+            name = app.xpath("./div[2]/span/a")[0].text
+            version = app.xpath("./div[2]/div/span")[0].text
+            download_num = app.xpath("./div[2]/div/span")[1].text
+            desc = app.xpath("./div[2]/p")[0].text
+            key = app.xpath("./div[2]/div/span[3]/span[2]")[0].attrib["style"]
+            rating = mapper[key]
+            id = app.xpath("./div[3]/a")[0].attrib["onclick"]
+            id = re.findall(pattern, str(id))
+            arr.append({'name':name,'id':id[0],'version':version,'download_num':download_num,
+            'desc':desc,'rating':rating})
+            executor.submit(download,id,name)
+        except Exception as e :
+            logger.get_log().error("下载 "+ name +"失败",e)
             break
 
-    logger.get_log().debug("应用url爬取成功")
+    logger.get_log().debug("应用描述信息爬取成功")
     with open(os.getcwd()+"\App\data\download_url.json","a",encoding='utf8') as f:
         f.write(json.dumps(arr,ensure_ascii=False)+"\n")
-    logger.get_log().debug("应用url存储成功")
+    logger.get_log().debug("应用描述信息存储成功")
 
 for i in range(1,20):
     apps = craw_app_list_page(i)

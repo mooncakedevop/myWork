@@ -22,11 +22,11 @@ def write_proxy():
             arr.append(ip.attrib["data-url"])
         print("第"+ str(i) + "页代理爬取完毕")
 
-    with open (os.getcwd() + "//App//data//ip.json","w") as f:
+    with open ("D:\\myWork\\User\\myWork\\App\\data\\ip.json","w") as f:
         f.write(json.dumps(arr,ensure_ascii=False)+"\n")
         f.close()
         
-# write_proxy()
+write_proxy()
 scheduler = BackgroundScheduler()
 scheduler.add_job(write_proxy,'interval',minutes=30)
 scheduler.start()

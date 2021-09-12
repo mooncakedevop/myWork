@@ -1,5 +1,5 @@
 import os
-import json
+import json,requests
 
 
 class Proxy:
@@ -17,3 +17,10 @@ class Proxy:
     @property
     def ips(self):
         return self.arr
+
+    def get_ip(self):
+        res = requests.get("https://ip.jiangxianli.com/api/proxy_ip",verify=False).json()
+        ip = res["data"]["ip"]
+        port = res["data"]["port"]
+        return "http://"+ip+":"+port
+

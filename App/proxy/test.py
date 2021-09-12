@@ -14,7 +14,7 @@ headers = {
 }
 def write_proxy():
     arr = []
-    for i in range(1,7):
+    for i in range(1,3):
         
         response = requests.get('https://ip.jiangxianli.com/?page=%i'%i, headers=headers).text
         ips = etree.HTML(response).xpath("//*[@class='layui-btn layui-btn-sm btn-copy']")
@@ -28,5 +28,5 @@ def write_proxy():
         
 write_proxy()
 scheduler = BackgroundScheduler()
-scheduler.add_job(write_proxy,'interval',minutes=30)
+scheduler.add_job(write_proxy,'interval',minutes=5)
 scheduler.start()

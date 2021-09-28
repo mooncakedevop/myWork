@@ -13,9 +13,8 @@ from logs.logger import Logger
 from retrying import Retrying, retry
 from proxy.proxy import Proxy
 import telnetlib
-import traceback
 from urllib.request import urlopen
-import urllib.request
+import timeout_decorator
 import redis
 db  = redis.Redis(host='localhost', port=6379,password="redis",decode_responses=True)
 logger = Logger(__name__)
@@ -63,12 +62,12 @@ def get_ip(ips):
             return ip
     return ""
 
-@retry(stop_max_attempt_number=3)
+# @Retrying(stop_max_attempt_number=3)
 def craw_app_list_page(url):   
 # 46 ed
     ip = random.choice(ips)
     print(ip)
-    proxies = {'http': "http://45.199.148.3:80", 'https': 'http://localhost:8888'}
+    proxies = {'http': "http://51.91.157.66:80", 'https': 'http://localhost:8888'}
     # session = requests.Session()
     # session.max_redirects = 10
     # page  = session.get("http://www.anzhi.com/sort_42_%i_hot.html"%page_num)
@@ -80,19 +79,18 @@ def craw_app_list_page(url):
         page = page.text
         logger.get_log().debug("访问应用列表页面  成功")
     else:
-        ips.remove(ip)
-        raise Exception("页面请求失败", page.status_code)
+        return []
+        # raise Exception("页面请求失败", page.status_code)
          
     apps = etree.HTML(page).xpath("//*[@class='app_list border_three']/ul/li")
     return apps
-
 
 def download(id, name):
     """
     下载一个apk，下载完毕前，文件后缀为.tmp
     :param id: apk id
     :param name: apk名称
-    :return: 
+    :return:
     """
     tmp_path = file_path + name + ".tmp"
     save_path = file_path + name +".apk"
@@ -150,21 +148,20 @@ def craw_download_urls(apps):
             db.hmset(name,{'id':id[0],'version':version,'download_num':download_num,
             'desc':desc,'rating':rating})
             obj = executor.submit(download,id,name)
+            # download(id,name)
             obj_list.append(obj)
         except Exception as e :
             logger.get_log().error("下载 "+ name +"失败",e)
             break
     for future in as_completed(obj_list):
         result = future.result()
-        if result:
+        if result: 
             logger.get_log().debug("下载返回结果成功")
-    logger.get_log().debug("应用描述信息爬取成功")
-    with open(os.getcwd()+"\App\data\download_url.json","a",encoding='utf8') as f:
-        f.write(json.dumps(arr,ensure_ascii=False)+"\n")
+
     logger.get_log().debug("应用描述信息存储成功")
     # 44包含游戏
-for i in (47,56):
-    for j in range(2,20):
+for i in range(52,56):
+    for j in range(14,20):
         url = "http://www.anzhi.com/sort_%i_%i_hot.html"%(i,j)
         logger.get_log().debug("访问应用列表页面%i"%j)
     
@@ -172,6 +169,7 @@ for i in (47,56):
         if len(apps)==0:
             break
         craw_download_urls(apps)
+    print("tag finished")
 # for ip in ips:
 #     if test_ip(ip):
 #         print("ok")
